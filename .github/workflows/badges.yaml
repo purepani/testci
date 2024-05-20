@@ -1,0 +1,37 @@
+name: badges
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+env:
+  BASE_IMAGE: openpilot-base
+  DOCKER_REGISTRY: ghcr.io/commaai
+  RUN: nix shell .#default --command
+
+jobs:
+  badges:
+    name: create badges
+    runs-on: ubuntu-latest
+    if: github.repository == 'commaai/openpilot'
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - uses: ./.github/workflows/setup-with-retry
+    - name: Push badges
+      run: |
+        ${{ env.RUN }} "scons -j$(nproc) && python selfdrive/ui/translations/create_badges.py"
+
+        rm .gitattributes
+
+        git checkout --orphan badges
+        git rm -rf --cached .
+        git config user.email "badge-researcher@comma.ai"
+        git config user.name "Badge Researcher"
+
+        git add translation_badge.svg
+        git commit -m "Add/Update badges"
+        git push -f origin HEAD
